@@ -36,6 +36,9 @@
 \*****************************************************************************/
 
 #include "sacct.h"
+#include <json-c/json.h>
+
+void print_fields_gpu(print_field_t* field, char* value, int last);
 
 /*
  * Globals
@@ -71,7 +74,8 @@ print_field_t fields[] = {
 	{19, "End", print_fields_date, PRINT_END},
 	{8,  "ExitCode", print_fields_str, PRINT_EXITCODE},
 	{6,  "GID", print_fields_uint, PRINT_GID},
-	{9,  "Group", print_fields_str, PRINT_GROUP},
+    {10, "GPUProcessIDs", print_fields_gpu, PRINT_GPU_PIDS},
+    {9,  "Group", print_fields_str, PRINT_GROUP},
 	{-12, "JobID", print_fields_str, PRINT_JOBID},
 	{-12, "JobIDRaw", print_fields_str, PRINT_JOBIDRAW},
 	{10, "JobName", print_fields_str, PRINT_JOBNAME},
@@ -160,6 +164,12 @@ int main(int argc, char **argv)
 		SACCT_USAGE
 	} op;
 	int rc = 0;
+#if 0
+    char str[] = "[{\"pid\": 175617, \"time\" : 7200485, \"gpuUtilization\" : 2, \"serial\" : \"0424218019550\", \"maxMemoryUsage\" : 31193.0, \"memoryUtilization\" : 0}]";
+    print_field_t f;
+    f.len = 20;
+    print_fields_gpu(&f, str, 0);
+#else
 
 	slurm_conf_init(NULL);
 	sacct_init();
@@ -195,5 +205,51 @@ int main(int argc, char **argv)
 	}
 
 	sacct_fini();
-	return (rc);
+#endif
+    return (rc);
+}
+
+void print_fields_gpu(print_field_t* field, char* value, int last)
+{
+    int abs_len = abs(field->len);
+    char temp_char[abs_len + 1];
+    char* print_this = NULL;
+    if (!value) {
+        if (print_fields_parsable_print)
+            print_this = "";
+        else
+            print_this = " ";
+    }
+    else
+    {
+        json_object* new_obj;
+        new_obj = json_tokener_parse(value);
+        json_type t = json_object_get_type(new_obj);
+        if (t == json_type_array)
+        {
+            for (int i = 0; i < json_object_array_length(new_obj); ++i)
+            {
+                struct json_object* j = json_object_array_get_idx(new_obj, i);
+#if 1
+                // print pid
+                json_object* tmp;
+                if (json_object_object_get_ex(j, "pid", &tmp)) {
+                    // Key Name exists
+                    printf("%s ", json_object_get_string(tmp));
+                        // Name: xxxxx
+                }
+#else
+                // print all values
+                struct json_object_iterator it;
+                struct json_object_iterator itEnd;
+                it = json_object_iter_begin(j);
+                itEnd = json_object_iter_end(j);
+                while (!json_object_iter_equal(&it, &itEnd)) {
+                    printf("%s\n", json_object_iter_peek_name(&it));
+                    json_object_iter_next(&it);
+                }
+#endif
+            }
+        }
+    }
 }

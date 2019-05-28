@@ -41,6 +41,15 @@
 #include "src/common/parse_time.h"
 #include "slurm.h"
 
+#pragma message "CCCCCC"
+#if HAVE_JSON_C_INC
+#  include <json-c/json.h>
+#pragma message "AAAAA"
+#elif HAVE_JSON_INC
+#  include <json/json.h>
+#pragma message "BBBBBB"
+#endif
+
 print_field_t *field = NULL;
 int curr_inx = 1;
 char outbuf[FORMAT_STRING_SIZE];
@@ -984,7 +993,22 @@ extern void print_fields(type_t type, void *object)
 					     tmp_char,
 					     (curr_inx == field_count));
 			break;
-		case PRINT_JOBID:
+        case PRINT_GPU_PIDS:
+            switch (type) {
+            case JOB:
+                tmp_char = job->admin_comment;
+                break;
+            case JOBSTEP:
+            case JOBCOMP:
+            default:
+                tmp_char = NULL;
+                break;
+            }
+            field->print_routine(field,
+                tmp_char,
+                (curr_inx == field_count));
+            break;
+        case PRINT_JOBID:
 			if (type == JOBSTEP)
 				job = step->job_ptr;
 
